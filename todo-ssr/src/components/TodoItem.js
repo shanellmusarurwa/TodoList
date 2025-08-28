@@ -1,4 +1,3 @@
-// components/TodoItem.js - Fixed link
 import { useState } from "react";
 import {
   FaCheck,
@@ -29,10 +28,8 @@ export default function TodoItem({ todo, onUpdate, onDelete, loading }) {
     setIsUpdating(true);
 
     try {
-      // This should now return the updated todo
       const updatedTodo = await onUpdate(todo.id, { title: editTitle });
 
-      // If we get here, the update was successful
       setIsEditing(false);
     } catch (error) {
       setError("Failed to update todo");

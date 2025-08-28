@@ -1,4 +1,3 @@
-// pages/api/todos/[id].js - Fixed update handling
 import { getTodos, updateTodo, deleteTodo } from "../../../lib/db";
 
 export default async function handler(req, res) {
@@ -10,7 +9,6 @@ export default async function handler(req, res) {
   try {
     switch (method) {
       case "GET":
-        // Get a specific todo
         const todos = await getTodos();
         const todo = todos.find((t) => t.id === parseInt(id));
 
@@ -24,7 +22,6 @@ export default async function handler(req, res) {
       case "PUT":
         const updates = req.body;
 
-        // Validate updates
         if (
           updates.title &&
           (updates.title.trim() === "" || updates.title.length > 255)

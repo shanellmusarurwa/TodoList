@@ -1,4 +1,3 @@
-// Simple in-memory database for demonstration
 let todos = [
   { id: 1, title: "Learn Next.js", completed: false },
   { id: 2, title: "Build a todo app", completed: true },
@@ -8,7 +7,6 @@ let todos = [
 let nextId = 4;
 
 export async function getTodos() {
-  // Simulate database delay
   await new Promise((resolve) => setTimeout(resolve, 500));
   return todos;
 }

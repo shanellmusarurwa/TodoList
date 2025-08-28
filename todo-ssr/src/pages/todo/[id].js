@@ -1,4 +1,3 @@
-// pages/todo/[id].js - Fixed to use the correct API endpoint
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
@@ -94,7 +93,6 @@ export default function ViewTodo() {
         throw new Error("Failed to delete todo");
       }
 
-      // Redirect to home page after successful deletion
       router.push("/");
     } catch (error) {
       setError(error.message);
