@@ -134,29 +134,34 @@ export default function Home({ initialTodos }) {
 
         <form
           onSubmit={handleSubmit}
-          className="p-6 border-b border-gray-200 bg-gray-50"
+          className="p-4 sm:p-6 border-b border-gray-200 bg-gray-50"
         >
-          <div className="flex space-x-3">
+          <div className="flex flex-col sm:flex-row sm:space-x-3 space-y-3 sm:space-y-0">
             <input
               type="text"
               value={newTodoTitle}
               onChange={(e) => setNewTodoTitle(e.target.value)}
               placeholder="What needs to be done?"
-              className="flex-1 border border-gray-300 rounded-lg px-4 py-3 text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+              className="flex-1 border border-gray-300 rounded-lg px-4 py-3 text-base sm:text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
               disabled={adding}
             />
             <button
               type="submit"
               disabled={adding || !newTodoTitle.trim()}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2 shadow-md transition"
+              className="bg-blue-600 text-white px-4 sm:px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center space-x-2 shadow-md transition whitespace-nowrap min-w-[80px]"
             >
-              {adding ? <FaPlus className="animate-spin" /> : <FaPlus />}
-              <span>Add</span>
+              {adding ? (
+                <FaPlus className="animate-spin" />
+              ) : (
+                <>
+                  <FaPlus className="sm:block hidden" />
+                  <span>Add</span>
+                </>
+              )}
             </button>
           </div>
         </form>
 
-        {/* Updated loading logic section */}
         <div className="max-h-96 overflow-y-auto">
           {initialLoading ? (
             <LoadingSpinner />
@@ -178,7 +183,7 @@ export default function Home({ initialTodos }) {
           )}
         </div>
 
-        <div className="p-6 bg-gray-50 text-gray-600 flex justify-between items-center border-t border-gray-200">
+        <div className="p-4 sm:p-6 bg-gray-50 text-gray-600 flex justify-between items-center border-t border-gray-200 text-sm sm:text-base">
           <span className="font-medium">
             {todos.length} {todos.length === 1 ? "task" : "tasks"}
           </span>
