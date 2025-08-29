@@ -1,54 +1,55 @@
-import { getTodos, updateTodo, deleteTodo } from "../../../lib/db";
+// pages/api/todos/[id].js
+import { getTodosFromCookies, setTodosCookie } from "../../../lib/storage";
 
-export default async function handler(req, res) {
-  const {
-    query: { id },
-    method,
-  } = req;
+export default function handler(req, res) {
+  const { id } = req.query;
+  const todoId = parseInt(id);
 
-  try {
-    switch (method) {
-      case "GET":
-        const todos = await getTodos();
-        const todo = todos.find((t) => t.id === parseInt(id));
-
-        if (!todo) {
-          return res.status(404).json({ error: "Todo not found" });
-        }
-
-        res.status(200).json(todo);
-        break;
-
-      case "PUT":
-        const updates = req.body;
-
-        if (
-          updates.title &&
-          (updates.title.trim() === "" || updates.title.length > 255)
-        ) {
-          return res.status(400).json({ error: "Valid title is required" });
-        }
-
-        const updatedTodo = await updateTodo(parseInt(id), updates);
-        res.status(200).json(updatedTodo);
-        break;
-
-      case "DELETE":
-        await deleteTodo(parseInt(id));
-        res.status(200).json({ success: true });
-        break;
-
-      default:
-        res.setHeader("Allow", ["GET", "PUT", "DELETE"]);
-        res.status(405).end(`Method ${method} Not Allowed`);
-    }
-  } catch (error) {
-    console.error("API Error:", error);
-
-    if (error.message.includes("not found")) {
-      res.status(404).json({ error: error.message });
-    } else {
-      res.status(500).json({ error: "Internal server error" });
-    }
+  if (isNaN(todoId)) {
+    return res.status(400).json({ error: "Invalid ID" });
   }
+
+  const todos = getTodosFromCookies(req);
+  const todoIndex = todos.findIndex((t) => t.id === todoId);
+
+  if (todoIndex === -1) {
+    return res.status(404).json({ error: "Todo not found" });
+  }
+
+  if (req.method === "GET") {
+    return res.status(200).json(todos[todoIndex]);
+  }
+
+  if (req.method === "PUT") {
+    const updates = req.body;
+
+    // Validate title if provided
+    if (
+      updates.title &&
+      (updates.title.trim() === "" || updates.title.length > 255)
+    ) {
+      return res.status(400).json({ error: "Valid title is required" });
+    }
+
+    const updatedTodo = { ...todos[todoIndex], ...updates };
+    if (updates.title) {
+      updatedTodo.title = updates.title.trim();
+    }
+
+    const updatedTodos = [...todos];
+    updatedTodos[todoIndex] = updatedTodo;
+    setTodosCookie(updatedTodos, res);
+
+    return res.status(200).json(updatedTodo);
+  }
+
+  if (req.method === "DELETE") {
+    const updatedTodos = todos.filter((t) => t.id !== todoId);
+    setTodosCookie(updatedTodos, res);
+
+    return res.status(200).json({ success: true });
+  }
+
+  res.setHeader("Allow", ["GET", "PUT", "DELETE"]);
+  res.status(405).end(`Method ${req.method} Not Allowed`);
 }

@@ -1,22 +1,42 @@
+// pages/index.js
 import { useState, useEffect } from "react";
 import Head from "next/head";
 import TodoItem from "../components/TodoItem";
 import LoadingSpinner from "../components/LoadingSpinner";
-import { FaPlus, FaClipboardList } from "react-icons/fa";
+import { FaPlus, FaClipboardList, FaSync, FaSpinner } from "react-icons/fa";
+import {
+  getTodosFromLocalStorage,
+  saveTodosToLocalStorage,
+} from "../lib/storage";
 
 export default function Home({ initialTodos }) {
   const [todos, setTodos] = useState(initialTodos || []);
   const [newTodoTitle, setNewTodoTitle] = useState("");
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [initialLoading, setInitialLoading] = useState(!initialTodos);
 
-  // Add useEffect to handle initial loading
+  // Sync between server and client
   useEffect(() => {
-    if (!initialTodos) {
-      fetchTodos();
+    if (typeof window !== "undefined") {
+      // Load from localStorage on client side
+      const localTodos = getTodosFromLocalStorage();
+      if (localTodos.length > 0) {
+        setTodos(localTodos);
+      }
+
+      // Also save initial todos to localStorage
+      if (initialTodos && initialTodos.length > 0) {
+        saveTodosToLocalStorage(initialTodos);
+      }
     }
   }, [initialTodos]);
+
+  // Save to localStorage whenever todos change
+  useEffect(() => {
+    saveTodosToLocalStorage(todos);
+  }, [todos]);
 
   const fetchTodos = async () => {
     setLoading(true);
@@ -27,12 +47,21 @@ export default function Home({ initialTodos }) {
       }
       const data = await response.json();
       setTodos(data);
+      saveTodosToLocalStorage(data);
     } catch (error) {
       console.error("Failed to fetch todos:", error);
-      // You might want to show an error message to the user here
     } finally {
       setLoading(false);
       setInitialLoading(false);
+    }
+  };
+
+  const syncWithServer = async () => {
+    setSyncing(true);
+    try {
+      await fetchTodos();
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -52,7 +81,8 @@ export default function Home({ initialTodos }) {
       }
 
       const newTodo = await response.json();
-      setTodos([...todos, newTodo]);
+      const updatedTodos = [...todos, newTodo];
+      setTodos(updatedTodos);
       setNewTodoTitle("");
     } catch (error) {
       console.error("Failed to add todo:", error);
@@ -77,7 +107,10 @@ export default function Home({ initialTodos }) {
       }
 
       const updatedTodo = await response.json();
-      setTodos(todos.map((todo) => (todo.id === id ? updatedTodo : todo)));
+      const updatedTodos = todos.map((todo) =>
+        todo.id === id ? updatedTodo : todo
+      );
+      setTodos(updatedTodos);
       return updatedTodo;
     } catch (error) {
       console.error("Failed to update todo:", error);
@@ -95,7 +128,8 @@ export default function Home({ initialTodos }) {
         throw new Error("Failed to delete todo");
       }
 
-      setTodos(todos.filter((todo) => todo.id !== id));
+      const updatedTodos = todos.filter((todo) => todo.id !== id);
+      setTodos(updatedTodos);
       return { success: true };
     } catch (error) {
       console.error("Failed to delete todo:", error);
@@ -123,11 +157,21 @@ export default function Home({ initialTodos }) {
 
       <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
         <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 text-white">
-          <div className="flex items-center space-x-3 mb-2">
-            <FaClipboardList className="text-3xl" />
-            <h1 className="text-3xl font-bold">Todo List</h1>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <FaClipboardList className="text-3xl" />
+              <h1 className="text-3xl font-bold">Todo List</h1>
+            </div>
+            <button
+              onClick={syncWithServer}
+              disabled={syncing}
+              className="p-2 text-white hover:bg-blue-700 rounded-full disabled:opacity-50"
+              title="Sync with server"
+            >
+              {syncing ? <FaSpinner className="animate-spin" /> : <FaSync />}
+            </button>
           </div>
-          <p className="text-blue-100">
+          <p className="text-blue-100 mt-2">
             Manage your tasks efficiently and boost your productivity
           </p>
         </div>
@@ -194,12 +238,20 @@ export default function Home({ initialTodos }) {
   );
 }
 
-export async function getServerSideProps() {
+export async function getServerSideProps({ req }) {
   try {
+    // Get the absolute URL for the API request
+    const protocol = req.headers["x-forwarded-proto"] || "http";
+    const host = req.headers["x-forwarded-host"] || req.headers.host;
+    const baseUrl = `${protocol}://${host}`;
+
     // Fetch todos from the API route on the server
-    const response = await fetch(
-      `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/todos`
-    );
+    const response = await fetch(`${baseUrl}/api/todos`);
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch todos");
+    }
+
     const initialTodos = await response.json();
 
     return {

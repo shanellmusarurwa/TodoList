@@ -1,28 +1,33 @@
-// pages/api/todos/index.js - Updated to only handle bulk operations
-import { getTodos, addTodo } from "../../../lib/db";
+// pages/api/todos/index.js
+import { getTodosFromCookies, setTodosCookie } from "../../../lib/storage";
 
-export default async function handler(req, res) {
-  try {
-    switch (req.method) {
-      case "GET":
-        const todos = await getTodos();
-        res.status(200).json(todos);
-        break;
-
-      case "POST":
-        const { title } = req.body;
-        if (!title || title.trim() === "") {
-          return res.status(400).json({ error: "Title is required" });
-        }
-        const newTodo = await addTodo(title.trim());
-        res.status(201).json(newTodo);
-        break;
-
-      default:
-        res.setHeader("Allow", ["GET", "POST"]);
-        res.status(405).end(`Method ${req.method} Not Allowed`);
-    }
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+export default function handler(req, res) {
+  if (req.method === "GET") {
+    const todos = getTodosFromCookies(req);
+    return res.status(200).json(todos);
   }
+
+  if (req.method === "POST") {
+    const { title } = req.body;
+
+    if (!title || title.trim() === "") {
+      return res.status(400).json({ error: "Title is required" });
+    }
+
+    const todos = getTodosFromCookies(req);
+    const newId = Math.max(0, ...todos.map((t) => t.id)) + 1;
+    const newTodo = {
+      id: newId,
+      title: title.trim(),
+      completed: false,
+    };
+
+    const updatedTodos = [...todos, newTodo];
+    setTodosCookie(updatedTodos, res);
+
+    return res.status(201).json(newTodo);
+  }
+
+  res.setHeader("Allow", ["GET", "POST"]);
+  res.status(405).end(`Method ${req.method} Not Allowed`);
 }

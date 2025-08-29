@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
@@ -12,6 +12,10 @@ import {
   FaTimes,
 } from "react-icons/fa";
 import LoadingSpinner from "../../components/LoadingSpinner";
+import {
+  getTodosFromLocalStorage,
+  saveTodosToLocalStorage,
+} from "../../lib/storage";
 
 export default function ViewTodo() {
   const router = useRouter();
@@ -23,15 +27,24 @@ export default function ViewTodo() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  useEffect(() => {
-    if (id) {
-      fetchTodo();
-    }
-  }, [id]);
-
-  const fetchTodo = async () => {
+  // Wrap fetchTodo in useCallback to prevent infinite re-renders
+  const fetchTodo = useCallback(async () => {
     try {
       setLoading(true);
+
+      // First try to get from localStorage (client-side)
+      if (typeof window !== "undefined") {
+        const localTodos = getTodosFromLocalStorage();
+        const localTodo = localTodos.find((t) => t.id === parseInt(id));
+
+        if (localTodo) {
+          setTodo(localTodo);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Fallback to API if not found in localStorage
       const response = await fetch(`/api/todos/${id}`);
 
       if (!response.ok) {
@@ -49,7 +62,13 @@ export default function ViewTodo() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]); // Add id as dependency
+
+  useEffect(() => {
+    if (id) {
+      fetchTodo();
+    }
+  }, [id, fetchTodo]); // Now include fetchTodo in dependencies
 
   const handleToggle = async () => {
     setIsUpdating(true);
@@ -72,6 +91,15 @@ export default function ViewTodo() {
 
       const updatedTodo = await response.json();
       setTodo(updatedTodo);
+
+      // Also update localStorage
+      if (typeof window !== "undefined") {
+        const localTodos = getTodosFromLocalStorage();
+        const updatedTodos = localTodos.map((t) =>
+          t.id === updatedTodo.id ? updatedTodo : t
+        );
+        saveTodosToLocalStorage(updatedTodos);
+      }
     } catch (error) {
       setError(error.message);
       console.error("Failed to update todo:", error);
@@ -91,6 +119,13 @@ export default function ViewTodo() {
 
       if (!response.ok) {
         throw new Error("Failed to delete todo");
+      }
+
+      // Update localStorage
+      if (typeof window !== "undefined") {
+        const localTodos = getTodosFromLocalStorage();
+        const updatedTodos = localTodos.filter((t) => t.id !== parseInt(id));
+        saveTodosToLocalStorage(updatedTodos);
       }
 
       router.push("/");
@@ -248,8 +283,8 @@ export default function ViewTodo() {
                 Confirm Delete
               </h3>
               <p className="text-gray-600 mb-6">
-                Are you sure you want to delete this todo? This action cannot be
-                undone.
+                Are you sure you want to delete &ldquo;{todo.title}&rdquo;? This
+                action cannot be undone.
               </p>
 
               <div className="flex justify-end space-x-4">
